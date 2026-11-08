@@ -107,10 +107,7 @@ installer/        скрипт Inno Setup и сборка установщика
 
 ## Авторство
 
-Проект **полностью спроектирован и написан ИИ** — автономным агентом
-[OpenCode](https://opencode.ai) (модель DeepSeek V4.1 Flash) под руководством пользователя.
-Человек задавал требования, проверял результат и принимал решения; весь код, тесты,
-локализация, интерфейс и документация созданы ИИ.
+Проект **полностью спроектирован и написан ИИ**.
 
 ---
 
@@ -131,5 +128,4 @@ no admin rights required.
 Build: `dotnet build CorePilot.sln -c Release`, installer: `installer/build.ps1`
 (Inno Setup 6).
 
-The project was **fully designed and written by AI** — the OpenCode agent
-(DeepSeek V4.1 Flash) — under user guidance.
+The project was **fully designed and written by AI**.
