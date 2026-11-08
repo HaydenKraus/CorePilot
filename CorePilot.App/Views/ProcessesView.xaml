@@ -1,0 +1,832 @@
+<UserControl x:Class="CorePilot.App.Views.ProcessesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="clr-namespace:CorePilot.App.Localization"
+             xmlns:models="clr-namespace:CorePilot.Core.Models;assembly=CorePilot.Core"
+             xmlns:controls="clr-namespace:CorePilot.App.Controls">
+    <UserControl.Resources>
+        <ContextMenu x:Key="ProcessContextMenu"
+                     DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+            <MenuItem Header="{Binding [menu.terminate], Source={x:Static loc:LocalizationService.Instance}}"
+                      Command="{Binding TerminateCommand}" />
+            <Separator />
+            <MenuItem Header="{Binding [menu.open], Source={x:Static loc:LocalizationService.Instance}}"
+                      Command="{Binding OpenFileCommand}"
+                      IsEnabled="{Binding HasExecutablePath}" />
+            <MenuItem Header="{Binding [menu.openLocation], Source={x:Static loc:LocalizationService.Instance}}"
+                      Command="{Binding OpenFileLocationCommand}"
+                      IsEnabled="{Binding HasExecutablePath}" />
+            <Separator />
+            <MenuItem Header="{Binding [menu.priority], Source={x:Static loc:LocalizationService.Instance}}">
+                <MenuItem Header="{Binding [priority.cpu.idle], Source={x:Static loc:LocalizationService.Instance}}"
+                          Command="{Binding SetPriorityCommand}"
+                          CommandParameter="{x:Static models:CpuPriority.Idle}" />
+                <MenuItem Header="{Binding [priority.cpu.belowNormal], Source={x:Static loc:LocalizationService.Instance}}"
+                          Command="{Binding SetPriorityCommand}"
+                          CommandParameter="{x:Static models:CpuPriority.BelowNormal}" />
+                <MenuItem Header="{Binding [priority.cpu.normal], Source={x:Static loc:LocalizationService.Instance}}"
+                          Command="{Binding SetPriorityCommand}"
+                          CommandParameter="{x:Static models:CpuPriority.Normal}" />
+                <MenuItem Header="{Binding [priority.cpu.aboveNormal], Source={x:Static loc:LocalizationService.Instance}}"
+                          Command="{Binding SetPriorityCommand}"
+                          CommandParameter="{x:Static models:CpuPriority.AboveNormal}" />
+                <MenuItem Header="{Binding [priority.cpu.high], Source={x:Static loc:LocalizationService.Instance}}"
+                          Command="{Binding SetPriorityCommand}"
+                          CommandParameter="{x:Static models:CpuPriority.High}" />
+                <MenuItem Header="{Binding [priority.cpu.realtime], Source={x:Static loc:LocalizationService.Instance}}"
+                          Command="{Binding SetPriorityCommand}"
+                          CommandParameter="{x:Static models:CpuPriority.RealTime}" />
+            </MenuItem>
+            <Separator />
+            <MenuItem Header="{Binding SuspendResumeText}"
+                      Command="{Binding ToggleSuspendCommand}" />
+            <MenuItem Header="{Binding [action.restart], Source={x:Static loc:LocalizationService.Instance}}"
+                      Command="{Binding RestartCommand}" />
+            <Separator />
+            <MenuItem Header="{Binding [menu.copyPath], Source={x:Static loc:LocalizationService.Instance}}"
+                      Command="{Binding CopyPathCommand}" />
+            <MenuItem Header="{Binding [menu.copyCommandLine], Source={x:Static loc:LocalizationService.Instance}}"
+                      Command="{Binding CopyCommandLineCommand}" />
+        </ContextMenu>
+        <Style x:Key="HeaderText" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+        </Style>
+        <Style x:Key="InfoLabel" TargetType="TextBlock" BasedOn="{StaticResource Text.Caption}">
+            <Setter Property="Margin" Value="0,0,0,7" />
+        </Style>
+        <Style x:Key="InfoValue" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Margin" Value="0,0,0,7" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Background="{DynamicResource Brush.Window}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Header + toolbar -->
+        <Border Grid.Row="0" Padding="24,18,24,10">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <Grid>
+                    <TextBlock Text="{Binding [nav.processes], Source={x:Static loc:LocalizationService.Instance}}"
+                               Style="{StaticResource Text.Title}"
+                               VerticalAlignment="Center" />
+
+                    <StackPanel Orientation="Horizontal"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Center">
+                        <CheckBox Style="{StaticResource CheckBox.Filter}"
+                                  Content="{Binding [process.onlyWithRules], Source={x:Static loc:LocalizationService.Instance}}"
+                                  IsChecked="{Binding OnlyWithRules, Mode=TwoWay}"
+                                  Margin="0,0,16,0" />
+                        <Button Style="{StaticResource Button.Accent}"
+                                Command="{Binding RunTaskCommand}"
+                                Padding="14,8">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE710;"
+                                           FontFamily="{DynamicResource Font.Icon}"
+                                           FontSize="11"
+                                           Margin="0,0,8,0"
+                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                <TextBlock Text="{Binding [action.runNew], Source={x:Static loc:LocalizationService.Instance}}"
+                                           FontSize="12"
+                                           FontWeight="SemiBold"
+                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+
+                <Grid Grid.Row="1" Margin="0,14,0,0">
+                    <StackPanel Orientation="Horizontal">
+                        <controls:SearchBox Width="360"
+                                            Text="{Binding SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                            Placeholder="{Binding [process.searchPlaceholder], Source={x:Static loc:LocalizationService.Instance}}" />
+                        <Button Style="{StaticResource Button.Icon}"
+                                Margin="8,0,0,0"
+                                Command="{Binding RefreshCommand}"
+                                ToolTip="{Binding [common.refresh], Source={x:Static loc:LocalizationService.Instance}}">
+                            <TextBlock Text="&#xE72C;"
+                                       FontFamily="{DynamicResource Font.Icon}"
+                                       FontSize="13"
+                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                        </Button>
+                    </StackPanel>
+
+                    <TextBlock Text="{Binding ProcessCountText}"
+                               HorizontalAlignment="Right"
+                               VerticalAlignment="Center"
+                               Style="{StaticResource Text.Caption}" />
+                </Grid>
+            </Grid>
+        </Border>
+
+        <!-- List with a floating details drawer -->
+        <Grid Grid.Row="1" Margin="24,0,24,18">
+            <DataGrid x:Name="ProcessGrid"
+                      ItemsSource="{Binding View}"
+                      SelectedItem="{Binding SelectedProcess, Mode=TwoWay}"
+                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                      EnableRowVirtualization="True"
+                      CanUserSortColumns="True"
+                      Sorting="ProcessGrid_Sorting"
+                      EnableColumnVirtualization="True"
+                      VirtualizingPanel.IsVirtualizing="True"
+                      VirtualizingPanel.IsVirtualizingWhenGrouping="True"
+                      VirtualizingPanel.VirtualizationMode="Recycling"
+                      PreviewMouseRightButtonDown="ProcessGrid_PreviewMouseRightButtonDown">
+                        <DataGrid.RowStyle>
+                            <Style TargetType="{x:Type DataGridRow}"
+                                   BasedOn="{StaticResource {x:Type DataGridRow}}">
+                                <Setter Property="ContextMenu" Value="{StaticResource ProcessContextMenu}" />
+                            </Style>
+                        </DataGrid.RowStyle>
+                        <DataGrid.GroupStyle>
+                            <GroupStyle>
+                                <GroupStyle.ContainerStyle>
+                                    <Style TargetType="{x:Type GroupItem}">
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="{x:Type GroupItem}">
+                                                    <Expander IsExpanded="True"
+                                                              HorizontalAlignment="Stretch">
+                                                        <Expander.Template>
+                                                            <ControlTemplate TargetType="Expander">
+                                                                <Grid>
+                                                                    <Grid.RowDefinitions>
+                                                                        <RowDefinition Height="Auto" />
+                                                                        <RowDefinition Height="*" />
+                                                                    </Grid.RowDefinitions>
+                                                                    <ToggleButton x:Name="Header"
+                                                                                  Grid.Row="0"
+                                                                                  Focusable="False"
+                                                                                  Cursor="Hand"
+                                                                                  HorizontalContentAlignment="Stretch"
+                                                                                  IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
+                                                                        <ToggleButton.Template>
+                                                                            <ControlTemplate TargetType="ToggleButton">
+                                                                                <Border x:Name="HeaderBorder"
+                                                                                        Background="Transparent"
+                                                                                        Padding="12,7">
+                                                                                    <ContentPresenter />
+                                                                                </Border>
+                                                                                <ControlTemplate.Triggers>
+                                                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                                                        <Setter TargetName="HeaderBorder" Property="Background" Value="{DynamicResource Brush.SurfaceHover}" />
+                                                                                    </Trigger>
+                                                                                </ControlTemplate.Triggers>
+                                                                            </ControlTemplate>
+                                                                        </ToggleButton.Template>
+                                                                        <StackPanel Orientation="Horizontal">
+                                                                            <TextBlock FontFamily="{DynamicResource Font.Icon}"
+                                                                                       FontSize="9"
+                                                                                       Foreground="{DynamicResource Brush.TextSecondary}"
+                                                                                       VerticalAlignment="Center"
+                                                                                       Margin="2,0,10,0">
+                                                                                <TextBlock.Style>
+                                                                                    <Style TargetType="TextBlock">
+                                                                                        <Setter Property="Text" Value="&#xE70D;" />
+                                                                                        <Style.Triggers>
+                                                                                            <DataTrigger Binding="{Binding IsChecked, RelativeSource={RelativeSource AncestorType=ToggleButton}}" Value="False">
+                                                                                                <Setter Property="Text" Value="&#xE76C;" />
+                                                                                            </DataTrigger>
+                                                                                        </Style.Triggers>
+                                                                                    </Style>
+                                                                                </TextBlock.Style>
+                                                                            </TextBlock>
+                                                                            <TextBlock Text="{Binding Name, Converter={StaticResource ProcessGroupName}}"
+                                                                                       FontSize="12"
+                                                                                       FontWeight="SemiBold"
+                                                                                       VerticalAlignment="Center" />
+                                                                            <TextBlock Text="{Binding ItemCount, StringFormat={} ({0})}"
+                                                                                       FontSize="12"
+                                                                                       Foreground="{DynamicResource Brush.TextSecondary}"
+                                                                                       VerticalAlignment="Center"
+                                                                                       Margin="6,0,0,0" />
+                                                                        </StackPanel>
+                                                                    </ToggleButton>
+                                                                    <ContentPresenter x:Name="ExpandSite" Grid.Row="1" Visibility="Collapsed" />
+                                                                </Grid>
+                                                                <ControlTemplate.Triggers>
+                                                                    <Trigger Property="IsExpanded" Value="True">
+                                                                        <Setter TargetName="ExpandSite" Property="Visibility" Value="Visible" />
+                                                                    </Trigger>
+                                                                </ControlTemplate.Triggers>
+                                                            </ControlTemplate>
+                                                        </Expander.Template>
+                                                        <ItemsPresenter />
+                                                    </Expander>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </GroupStyle.ContainerStyle>
+                            </GroupStyle>
+                        </DataGrid.GroupStyle>
+                        <DataGrid.Columns>
+                            <DataGridTemplateColumn Width="150"
+                                                    MinWidth="140"
+                                                    SortMemberPath="Name">
+                                <DataGridTemplateColumn.Header>
+                                    <TextBlock Text="{Binding [process.name], Source={x:Static loc:LocalizationService.Instance}}"
+                                               Style="{StaticResource HeaderText}" />
+                                </DataGridTemplateColumn.Header>
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal" ToolTip="{Binding PathText}">
+                                            <ItemsControl ItemsSource="{Binding AncestorLines}"
+                                                          VerticalAlignment="Stretch">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <StackPanel Orientation="Horizontal" />
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border Width="17"
+                                                                Height="34"
+                                                                Background="Transparent"
+                                                                BorderBrush="{DynamicResource Brush.Border}">
+                                                            <Border.Style>
+                                                                <Style TargetType="Border">
+                                                                    <Setter Property="BorderThickness" Value="0" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding}" Value="True">
+                                                                            <Setter Property="BorderThickness" Value="1,0,0,0" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Border.Style>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+
+                                            <Grid Width="17"
+                                                  Height="34"
+                                                  Visibility="{Binding HasParent, Converter={StaticResource BoolToVisibility}}">
+                                                <Border Width="17"
+                                                        Height="17"
+                                                        VerticalAlignment="Top"
+                                                        BorderBrush="{DynamicResource Brush.Border}"
+                                                        BorderThickness="1,0,0,1" />
+                                            </Grid>
+
+                                            <Button Width="17"
+                                                    Height="17"
+                                                    Focusable="False"
+                                                    Cursor="Hand"
+                                                    VerticalAlignment="Center"
+                                                    IsEnabled="{Binding HasChildren}"
+                                                    Command="{Binding DataContext.ToggleTreeCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                    CommandParameter="{Binding}">
+                                                <Button.Template>
+                                                    <ControlTemplate TargetType="Button">
+                                                        <Border Background="Transparent">
+                                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                        </Border>
+                                                    </ControlTemplate>
+                                                </Button.Template>
+                                                <TextBlock FontFamily="{DynamicResource Font.Icon}"
+                                                           FontSize="9"
+                                                           Foreground="{DynamicResource Brush.TextSecondary}">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Text" Value="&#xE70D;" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsExpanded}" Value="False">
+                                                                    <Setter Property="Text" Value="&#xE76C;" />
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding HasChildren}" Value="False">
+                                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </Button>
+
+                                            <Grid Width="20" Height="20" Margin="0,0,10,0">
+                                                <TextBlock Text="&#xE9F5;"
+                                                           FontFamily="{DynamicResource Font.Icon}"
+                                                           FontSize="11"
+                                                           Foreground="{DynamicResource Brush.TextDisabled}"
+                                                           HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center" />
+                                                <Image Source="{Binding Icon}"
+                                                       Width="18"
+                                                       Height="18"
+                                                       Stretch="Uniform"
+                                                       RenderOptions.BitmapScalingMode="HighQuality" />
+                                            </Grid>
+                                            <TextBlock Text="{Binding Name}"
+                                                       FontSize="12"
+                                                       FontWeight="SemiBold"
+                                                       TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+
+                            <DataGridTemplateColumn Width="60" SortMemberPath="Pid">
+                                <DataGridTemplateColumn.Header>
+                                    <TextBlock Text="{Binding [process.pid], Source={x:Static loc:LocalizationService.Instance}}"
+                                               Style="{StaticResource HeaderText}" />
+                                </DataGridTemplateColumn.Header>
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Pid}"
+                                                   FontSize="12"
+                                                   Foreground="{DynamicResource Brush.TextSecondary}" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+
+                            <DataGridTemplateColumn Width="64" SortMemberPath="CpuPercent">
+                                <DataGridTemplateColumn.Header>
+                                    <TextBlock Text="{Binding [process.cpuPercent], Source={x:Static loc:LocalizationService.Instance}}"
+                                               Style="{StaticResource HeaderText}" />
+                                </DataGridTemplateColumn.Header>
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding CpuPercent, StringFormat={}{0:0.0}}"
+                                                   FontSize="12"
+                                                   HorizontalAlignment="Right" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+
+                            <DataGridTemplateColumn Width="82" SortMemberPath="WorkingSetBytes">
+                                <DataGridTemplateColumn.Header>
+                                    <TextBlock Text="{Binding [process.ram], Source={x:Static loc:LocalizationService.Instance}}"
+                                               Style="{StaticResource HeaderText}" />
+                                </DataGridTemplateColumn.Header>
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding MemoryText}"
+                                                   FontSize="12"
+                                                   HorizontalAlignment="Right" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+
+                            <DataGridTemplateColumn Width="100" SortMemberPath="Priority">
+                                <DataGridTemplateColumn.Header>
+                                    <TextBlock Text="{Binding [process.priority], Source={x:Static loc:LocalizationService.Instance}}"
+                                               Style="{StaticResource HeaderText}" />
+                                </DataGridTemplateColumn.Header>
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding PriorityText}"
+                                                   FontSize="12"
+                                                   TextTrimming="CharacterEllipsis" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+
+                            <DataGridTemplateColumn Width="58" SortMemberPath="AffinityCount">
+                                <DataGridTemplateColumn.Header>
+                                    <TextBlock Text="{Binding [process.cores], Source={x:Static loc:LocalizationService.Instance}}"
+                                               Style="{StaticResource HeaderText}" />
+                                </DataGridTemplateColumn.Header>
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding CoresText}"
+                                                   FontSize="12"
+                                                   Foreground="{DynamicResource Brush.TextSecondary}" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+
+                            <DataGridTemplateColumn Width="96" SortMemberPath="IsSuspended">
+                                <DataGridTemplateColumn.Header>
+                                    <TextBlock Text="{Binding [process.status], Source={x:Static loc:LocalizationService.Instance}}"
+                                               Style="{StaticResource HeaderText}" />
+                                </DataGridTemplateColumn.Header>
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal">
+                                            <Ellipse Width="7" Height="7" Margin="0,0,7,0">
+                                                <Ellipse.Style>
+                                                    <Style TargetType="Ellipse">
+                                                        <Setter Property="Fill" Value="{DynamicResource Brush.Success}" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsSuspended}" Value="True">
+                                                                <Setter Property="Fill" Value="{DynamicResource Brush.Danger}" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Ellipse.Style>
+                                            </Ellipse>
+                                            <TextBlock Text="{Binding StatusText}" FontSize="12" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <Border Background="{DynamicResource Brush.Surface}"
+                            CornerRadius="10"
+                            Margin="0,34,0,0"
+                            Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVisibility}}">
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <TextBlock Text="&#xE721;"
+                                       FontFamily="{DynamicResource Font.Icon}"
+                                       FontSize="30"
+                                       Foreground="{DynamicResource Brush.TextDisabled}"
+                                       HorizontalAlignment="Center" />
+                            <TextBlock Text="{Binding [process.empty], Source={x:Static loc:LocalizationService.Instance}}"
+                                       Style="{StaticResource Text.Caption}"
+                                       Margin="0,10,0,0"
+                                       HorizontalAlignment="Center" />
+                            <Button Content="{Binding [common.refresh], Source={x:Static loc:LocalizationService.Instance}}"
+                                    Style="{StaticResource Button.Base}"
+                                    Command="{Binding RefreshCommand}"
+                                    Padding="14,6"
+                                    Margin="0,14,0,0"
+                                    HorizontalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
+
+            <!-- Floating details drawer -->
+            <Border x:Name="DetailsPanel"
+                    Width="400"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Stretch"
+                    Panel.ZIndex="10"
+                    Background="{DynamicResource Brush.Surface}"
+                    BorderBrush="{DynamicResource Brush.Border}"
+                    BorderThickness="1"
+                    CornerRadius="12"
+                    Opacity="0"
+                    Visibility="{Binding HasSelection, Converter={StaticResource BoolToVisibility}}">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="28" ShadowDepth="0" Opacity="0.45" Color="#000000" />
+                </Border.Effect>
+                <Border.RenderTransform>
+                    <TranslateTransform X="24" />
+                </Border.RenderTransform>
+                <Grid>
+                    <Button Style="{StaticResource Button.Icon}"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Top"
+                            Margin="0,8,8,0"
+                            Panel.ZIndex="2"
+                            Command="{Binding ClearSelectionCommand}"
+                            ToolTip="{Binding [common.close], Source={x:Static loc:LocalizationService.Instance}}">
+                        <TextBlock Text="&#xE711;"
+                                   FontFamily="{DynamicResource Font.Icon}"
+                                   FontSize="10"
+                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                    </Button>
+                    <ContentControl Content="{Binding SelectedProcess}"
+                                    Visibility="{Binding HasSelection, Converter={StaticResource BoolToVisibility}}">
+                        <ContentControl.ContentTemplate>
+                            <DataTemplate>
+                                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                              HorizontalScrollBarVisibility="Disabled">
+                                    <StackPanel Margin="18,16,18,18">
+                                        <!-- Identity -->
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel>
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="{Binding Name}"
+                                                               FontSize="18"
+                                                               FontWeight="SemiBold"
+                                                               TextTrimming="CharacterEllipsis"
+                                                               MaxWidth="210" />
+                                                    <Border Style="{StaticResource Badge}"
+                                                            Background="{DynamicResource Brush.SurfaceHover}"
+                                                            Margin="8,0,0,0">
+                                                        <TextBlock Text="{Binding PidText}"
+                                                                   FontSize="10"
+                                                                   Foreground="{DynamicResource Brush.TextSecondary}" />
+                                                    </Border>
+                                                </StackPanel>
+                                                <TextBlock Text="{Binding PathText}"
+                                                           Style="{StaticResource Text.Caption}"
+                                                           Margin="0,4,0,0"
+                                                           ToolTip="{Binding PathText}"
+                                                           TextTrimming="CharacterEllipsis" />
+                                            </StackPanel>
+
+                                            <StackPanel Grid.Column="1"
+                                                        Orientation="Horizontal"
+                                                        VerticalAlignment="Top"
+                                                        Margin="0,0,26,0">
+                                                <Border Style="{StaticResource Badge.Accent}"
+                                                        Margin="0,0,4,0"
+                                                        Visibility="{Binding IsElevated, Converter={StaticResource BoolToVisibility}}">
+                                                    <TextBlock Text="{Binding [status.elevated], Source={x:Static loc:LocalizationService.Instance}}"
+                                                               FontSize="9"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="{DynamicResource Brush.Accent}" />
+                                                </Border>
+                                                <Border Style="{StaticResource Badge.Danger}"
+                                                        Visibility="{Binding IsSuspended, Converter={StaticResource BoolToVisibility}}">
+                                                    <TextBlock Text="{Binding [status.suspended], Source={x:Static loc:LocalizationService.Instance}}"
+                                                               FontSize="9"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="White" />
+                                                </Border>
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <!-- Facts -->
+                                        <Grid Margin="0,16,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="92" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                            </Grid.RowDefinitions>
+
+                                            <TextBlock Grid.Row="0"
+                                                       Text="{Binding [process.owner], Source={x:Static loc:LocalizationService.Instance}}"
+                                                       Style="{StaticResource InfoLabel}" />
+                                            <TextBlock Grid.Row="0" Grid.Column="1"
+                                                       Text="{Binding OwnerText}"
+                                                       Style="{StaticResource InfoValue}" />
+
+                                            <TextBlock Grid.Row="1"
+                                                       Text="{Binding [process.threads], Source={x:Static loc:LocalizationService.Instance}}"
+                                                       Style="{StaticResource InfoLabel}" />
+                                            <TextBlock Grid.Row="1" Grid.Column="1"
+                                                       Text="{Binding ThreadsText}"
+                                                       Style="{StaticResource InfoValue}" />
+
+                                            <TextBlock Grid.Row="2"
+                                                       Text="{Binding [process.startTime], Source={x:Static loc:LocalizationService.Instance}}"
+                                                       Style="{StaticResource InfoLabel}" />
+                                            <TextBlock Grid.Row="2" Grid.Column="1"
+                                                       Text="{Binding StartTimeText}"
+                                                       Style="{StaticResource InfoValue}" />
+
+                                            <TextBlock Grid.Row="3"
+                                                       Text="{Binding [process.cpu], Source={x:Static loc:LocalizationService.Instance}}"
+                                                       Style="{StaticResource InfoLabel}" />
+                                            <TextBlock Grid.Row="3" Grid.Column="1"
+                                                       Text="{Binding CpuPercent, StringFormat={}{0:0.0}}"
+                                                       Style="{StaticResource InfoValue}" />
+
+                                            <TextBlock Grid.Row="4"
+                                                       Text="{Binding [process.ram], Source={x:Static loc:LocalizationService.Instance}}"
+                                                       Style="{StaticResource InfoLabel}" />
+                                            <TextBlock Grid.Row="4" Grid.Column="1"
+                                                       Text="{Binding MemoryText}"
+                                                       Style="{StaticResource InfoValue}" />
+                                        </Grid>
+
+                                        <!-- Command line -->
+                                        <Grid Margin="0,8,0,6">
+                                            <TextBlock Text="{Binding [process.commandLine], Source={x:Static loc:LocalizationService.Instance}}"
+                                                       Style="{StaticResource Text.Section}"
+                                                       Margin="0" />
+                                            <Button HorizontalAlignment="Right"
+                                                    Style="{StaticResource Button.Base}"
+                                                    Padding="8,3"
+                                                    Command="{Binding CopyCommandLineCommand}">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="&#xE8C8;"
+                                                               FontFamily="{DynamicResource Font.Icon}"
+                                                               FontSize="10"
+                                                               Margin="0,0,6,0"
+                                                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                                    <TextBlock Text="{Binding [common.copy], Source={x:Static loc:LocalizationService.Instance}}"
+                                                               FontSize="11"
+                                                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                                </StackPanel>
+                                            </Button>
+                                        </Grid>
+                                        <TextBox Style="{StaticResource TextBox.Detail}"
+                                                 Text="{Binding CommandLineDisplay, Mode=OneWay}" />
+
+                                        <!-- Affinity -->
+                                        <Grid Margin="0,16,0,0">
+                                            <TextBlock Text="{Binding [action.setAffinity], Source={x:Static loc:LocalizationService.Instance}}"
+                                                       Style="{StaticResource Text.Section}"
+                                                       Margin="0" />
+                                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                                <Button Content="{Binding [common.all], Source={x:Static loc:LocalizationService.Instance}}"
+                                                        Style="{StaticResource Button.Base}"
+                                                        Padding="9,3"
+                                                        FontSize="11"
+                                                        Command="{Binding SelectAllCoresCommand}" />
+                                                <Button Content="{Binding [common.none], Source={x:Static loc:LocalizationService.Instance}}"
+                                                        Style="{StaticResource Button.Base}"
+                                                        Padding="9,3"
+                                                        FontSize="11"
+                                                        Margin="5,0,0,0"
+                                                        Command="{Binding SelectNoCoresCommand}" />
+                                            </StackPanel>
+                                        </Grid>
+                                        <TextBlock Text="{Binding AffinityText}"
+                                                   Style="{StaticResource Text.Caption}"
+                                                   Margin="0,3,0,8" />
+                                        <controls:CoreAffinityGrid />
+
+                                        <!-- Priorities -->
+                                        <TextBlock Text="{Binding [action.setPriority], Source={x:Static loc:LocalizationService.Instance}}"
+                                                   Style="{StaticResource Text.Section}"
+                                                   Margin="0,16,0,8" />
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="128" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                            </Grid.RowDefinitions>
+
+                                            <TextBlock Grid.Row="0"
+                                                       Text="{Binding [process.cpuPriority], Source={x:Static loc:LocalizationService.Instance}}"
+                                                       Style="{StaticResource Text.Caption}"
+                                                       TextWrapping="Wrap"
+                                                       Margin="0,0,8,7" />
+                                            <ComboBox Grid.Row="0" Grid.Column="1"
+                                                      Margin="0,0,0,7"
+                                                      ItemsSource="{Binding CpuPriorityOptions}"
+                                                      SelectedItem="{Binding SelectedCpuPriority, Mode=TwoWay}"
+                                                      ItemTemplate="{StaticResource LocalizedOptionTemplate}" />
+
+                                            <TextBlock Grid.Row="1"
+                                                       Text="{Binding [process.ioPriority], Source={x:Static loc:LocalizationService.Instance}}"
+                                                       Style="{StaticResource Text.Caption}"
+                                                       TextWrapping="Wrap"
+                                                       Margin="0,0,8,7" />
+                                            <ComboBox Grid.Row="1" Grid.Column="1"
+                                                      Margin="0,0,0,7"
+                                                      ItemsSource="{Binding IoPriorityOptions}"
+                                                      SelectedItem="{Binding SelectedIoPriority, Mode=TwoWay}"
+                                                      ItemTemplate="{StaticResource LocalizedOptionTemplate}" />
+
+                                            <TextBlock Grid.Row="2"
+                                                       Text="{Binding [process.memoryPriority], Source={x:Static loc:LocalizationService.Instance}}"
+                                                       Style="{StaticResource Text.Caption}"
+                                                       TextWrapping="Wrap"
+                                                       Margin="0,0,8,0" />
+                                            <ComboBox Grid.Row="2" Grid.Column="1"
+                                                      ItemsSource="{Binding MemoryPriorityOptions}"
+                                                      SelectedItem="{Binding SelectedMemoryPriority, Mode=TwoWay}"
+                                                      ItemTemplate="{StaticResource LocalizedOptionTemplate}" />
+                                        </Grid>
+
+                                        <!-- Actions -->
+                                        <Grid Margin="0,16,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                            </Grid.RowDefinitions>
+
+                                            <Button Grid.Row="0" Grid.Column="0"
+                                                    Style="{StaticResource Button.Base}"
+                                                    Margin="0,0,4,6"
+                                                    HorizontalContentAlignment="Center"
+                                                    Command="{Binding ToggleSuspendCommand}">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="&#xE769;"
+                                                               FontFamily="{DynamicResource Font.Icon}"
+                                                               FontSize="10"
+                                                               Margin="0,0,7,0"
+                                                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                                    <TextBlock Text="{Binding SuspendResumeText}"
+                                                               FontSize="12"
+                                                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                                </StackPanel>
+                                            </Button>
+
+                                            <Button Grid.Row="0" Grid.Column="1"
+                                                    Style="{StaticResource Button.Danger}"
+                                                    Margin="4,0,0,6"
+                                                    Command="{Binding TerminateCommand}">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="&#xE711;"
+                                                               FontFamily="{DynamicResource Font.Icon}"
+                                                               FontSize="10"
+                                                               Margin="0,0,7,0"
+                                                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                                    <TextBlock Text="{Binding [action.terminate], Source={x:Static loc:LocalizationService.Instance}}"
+                                                               FontSize="12"
+                                                               Foreground="White" />
+                                                </StackPanel>
+                                            </Button>
+
+                                            <Button Grid.Row="1" Grid.Column="0"
+                                                    Style="{StaticResource Button.Base}"
+                                                    Margin="0,0,4,0"
+                                                    Command="{Binding RestartCommand}">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="&#xE72C;"
+                                                               FontFamily="{DynamicResource Font.Icon}"
+                                                               FontSize="10"
+                                                               Margin="0,0,7,0"
+                                                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                                    <TextBlock Text="{Binding [action.restart], Source={x:Static loc:LocalizationService.Instance}}"
+                                                               FontSize="12"
+                                                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                                </StackPanel>
+                                            </Button>
+
+                                            <Button Grid.Row="1" Grid.Column="1"
+                                                    Style="{StaticResource Button.Base}"
+                                                    Margin="4,0,0,0"
+                                                    Command="{Binding TrimCommand}">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="&#xE894;"
+                                                               FontFamily="{DynamicResource Font.Icon}"
+                                                               FontSize="10"
+                                                               Margin="0,0,7,0"
+                                                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                                    <TextBlock Text="{Binding [action.trim], Source={x:Static loc:LocalizationService.Instance}}"
+                                                               FontSize="12"
+                                                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                                </StackPanel>
+                                            </Button>
+                                        </Grid>
+
+                                        <!-- Rule -->
+                                        <Border Background="{DynamicResource Brush.SurfaceAlt}"
+                                                CornerRadius="8"
+                                                Padding="12"
+                                                Margin="0,14,0,0">
+                                            <StackPanel>
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="&#xE8FD;"
+                                                               FontFamily="{DynamicResource Font.Icon}"
+                                                               FontSize="11"
+                                                               Foreground="{DynamicResource Brush.TextSecondary}"
+                                                               Margin="0,0,8,0" />
+                                                    <TextBlock Text="{Binding RuleStatusText}"
+                                                               FontSize="12"
+                                                               FontWeight="SemiBold" />
+                                                </StackPanel>
+
+                                                <Button Style="{StaticResource Button.Accent}"
+                                                        Margin="0,10,0,0"
+                                                        Command="{Binding SaveRuleCommand}">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <TextBlock Text="&#xE74E;"
+                                                                   FontFamily="{DynamicResource Font.Icon}"
+                                                                   FontSize="11"
+                                                                   Margin="0,0,7,0"
+                                                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                                        <TextBlock Text="{Binding [action.saveRule], Source={x:Static loc:LocalizationService.Instance}}"
+                                                                   FontSize="12"
+                                                                   FontWeight="SemiBold"
+                                                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                                    </StackPanel>
+                                                </Button>
+
+                                                <Button Style="{StaticResource Button.Base}"
+                                                        Margin="0,6,0,0"
+                                                        Command="{Binding UpdateRuleCommand}"
+                                                        Visibility="{Binding HasRule, Converter={StaticResource BoolToVisibility}}">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <TextBlock Text="&#xE72C;"
+                                                                   FontFamily="{DynamicResource Font.Icon}"
+                                                                   FontSize="10"
+                                                                   Margin="0,0,7,0"
+                                                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                                        <TextBlock Text="{Binding [action.updateRule], Source={x:Static loc:LocalizationService.Instance}}"
+                                                                   FontSize="12"
+                                                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                                    </StackPanel>
+                                                </Button>
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </DataTemplate>
+                        </ContentControl.ContentTemplate>
+                    </ContentControl>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

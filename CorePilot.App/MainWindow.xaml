@@ -1,0 +1,280 @@
+﻿<Window x:Class="CorePilot.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        xmlns:loc="clr-namespace:CorePilot.App.Localization"
+        xmlns:views="clr-namespace:CorePilot.App.Views"
+        Title="{Binding [app.title], Source={x:Static loc:LocalizationService.Instance}}"
+        Icon="Assets/CorePilot.ico"
+        Width="1280"
+        Height="800"
+        MinWidth="1040"
+        MinHeight="640"
+        WindowStyle="None"
+        ResizeMode="CanResize"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource Brush.Window}"
+        TextOptions.TextFormattingMode="Display"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True">
+
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="40"
+                            ResizeBorderThickness="6"
+                            GlassFrameThickness="0"
+                            CornerRadius="0"
+                            UseAeroCaptionButtons="False" />
+    </shell:WindowChrome.WindowChrome>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="26" />
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="196" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Navigation rail -->
+            <Border Grid.Column="0"
+                    Background="Transparent">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="56" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.Row="0"
+                                Orientation="Horizontal"
+                                Margin="20,0"
+                                VerticalAlignment="Center">
+                        <TextBlock Text="&#xE950;"
+                                   FontFamily="{DynamicResource Font.Icon}"
+                                   FontSize="16"
+                                   Foreground="{DynamicResource Brush.Accent}"
+                                   VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding [app.title], Source={x:Static loc:LocalizationService.Instance}}"
+                                   Margin="10,0,0,0"
+                                   FontSize="13"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Row="1" Margin="8,6,8,0">
+                        <RadioButton Style="{StaticResource NavItem}"
+                                      GroupName="NavGroup"
+                                      IsChecked="{Binding IsProcessesSelected, Mode=OneWay}"
+                                      Command="{Binding ShowProcessesCommand}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE9F5;"
+                                           FontFamily="{DynamicResource Font.Icon}"
+                                           FontSize="14"
+                                           Width="24"
+                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}" />
+                                <TextBlock Text="{Binding [nav.processes], Source={x:Static loc:LocalizationService.Instance}}"
+                                           FontSize="13"
+                                           FontWeight="SemiBold"
+                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}" />
+                            </StackPanel>
+                        </RadioButton>
+
+                        <RadioButton Style="{StaticResource NavItem}"
+                                      GroupName="NavGroup"
+                                      IsChecked="{Binding IsRulesSelected, Mode=OneWay}"
+                                      Command="{Binding ShowRulesCommand}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE8FD;"
+                                           FontFamily="{DynamicResource Font.Icon}"
+                                           FontSize="14"
+                                           Width="24"
+                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}" />
+                                <TextBlock Text="{Binding [nav.rules], Source={x:Static loc:LocalizationService.Instance}}"
+                                           FontSize="13"
+                                           FontWeight="SemiBold"
+                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}" />
+                            </StackPanel>
+                        </RadioButton>
+
+                        <RadioButton Style="{StaticResource NavItem}"
+                                      GroupName="NavGroup"
+                                      IsChecked="{Binding IsSettingsSelected, Mode=OneWay}"
+                                      Command="{Binding ShowSettingsCommand}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE713;"
+                                           FontFamily="{DynamicResource Font.Icon}"
+                                           FontSize="14"
+                                           Width="24"
+                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}" />
+                                <TextBlock Text="{Binding [nav.settings], Source={x:Static loc:LocalizationService.Instance}}"
+                                           FontSize="13"
+                                           FontWeight="SemiBold"
+                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}" />
+                            </StackPanel>
+                        </RadioButton>
+                    </StackPanel>
+
+                    <StackPanel Grid.Row="2" Margin="14,0,14,14">
+                        <StackPanel Orientation="Horizontal">
+                            <RadioButton Style="{StaticResource Segment}"
+                                          GroupName="ThemeGroup"
+                                          IsChecked="{Binding IsLight, Mode=OneWay}"
+                                          Command="{Binding SetLightThemeCommand}"
+                                          ToolTip="{Binding [settings.theme.light], Source={x:Static loc:LocalizationService.Instance}}">
+                                <TextBlock Text="&#xE706;"
+                                           FontFamily="{DynamicResource Font.Icon}"
+                                           FontSize="12"
+                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}" />
+                            </RadioButton>
+                            <RadioButton Style="{StaticResource Segment}"
+                                          GroupName="ThemeGroup"
+                                          IsChecked="{Binding IsDark, Mode=OneWay}"
+                                          Command="{Binding SetDarkThemeCommand}"
+                                          ToolTip="{Binding [settings.theme.dark], Source={x:Static loc:LocalizationService.Instance}}">
+                                <TextBlock Text="&#xE708;"
+                                           FontFamily="{DynamicResource Font.Icon}"
+                                           FontSize="12"
+                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}" />
+                            </RadioButton>
+                            <Border Width="1" Height="16"
+                                    Background="{DynamicResource Brush.Border}"
+                                    Margin="8,0" />
+                            <RadioButton Style="{StaticResource Segment}"
+                                          GroupName="LanguageGroup"
+                                          MinWidth="34"
+                                          IsChecked="{Binding IsRussian, Mode=OneWay}"
+                                          Command="{Binding SetRussianCommand}">
+                                <TextBlock Text="RU"
+                                           FontSize="10"
+                                           FontWeight="SemiBold"
+                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}" />
+                            </RadioButton>
+                            <RadioButton Style="{StaticResource Segment}"
+                                          GroupName="LanguageGroup"
+                                          MinWidth="34"
+                                          IsChecked="{Binding IsEnglish, Mode=OneWay}"
+                                          Command="{Binding SetEnglishCommand}">
+                                <TextBlock Text="EN"
+                                           FontSize="10"
+                                           FontWeight="SemiBold"
+                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}" />
+                            </RadioButton>
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- Title bar + content -->
+            <Grid Grid.Column="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="40" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <Grid Grid.Row="0" Background="{DynamicResource Brush.Window}">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button x:Name="MinimizeButton"
+                                Style="{StaticResource Button.TitleBar}"
+                                Click="Minimize_Click"
+                                ToolTip="{Binding [titlebar.minimize], Source={x:Static loc:LocalizationService.Instance}}"
+                                shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                            <TextBlock Text="&#xE921;"
+                                       FontFamily="{DynamicResource Font.Icon}"
+                                       FontSize="10"
+                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                        </Button>
+                        <Button x:Name="MaximizeButton"
+                                Style="{StaticResource Button.TitleBar}"
+                                Click="Maximize_Click"
+                                ToolTip="{Binding [titlebar.maximize], Source={x:Static loc:LocalizationService.Instance}}"
+                                shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                            <TextBlock x:Name="MaximizeGlyph"
+                                       Text="&#xE922;"
+                                       FontFamily="{DynamicResource Font.Icon}"
+                                       FontSize="10"
+                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                        </Button>
+                        <Button x:Name="CloseButton"
+                                Style="{StaticResource Button.TitleBar.Close}"
+                                Click="Close_Click"
+                                ToolTip="{Binding [titlebar.close], Source={x:Static loc:LocalizationService.Instance}}"
+                                shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                            <TextBlock Text="&#xE8BB;"
+                                       FontFamily="{DynamicResource Font.Icon}"
+                                       FontSize="10"
+                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                        </Button>
+                    </StackPanel>
+                </Grid>
+
+                <Grid Grid.Row="1">
+                    <views:ProcessesView DataContext="{Binding Processes}"
+                                         Visibility="{Binding DataContext.IsProcessesSelected, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibility}}" />
+                    <ContentControl x:Name="RulesHost"
+                                    Visibility="{Binding IsRulesSelected, Converter={StaticResource BoolToVisibility}}" />
+                    <ContentControl x:Name="SettingsHost"
+                                    Visibility="{Binding IsSettingsSelected, Converter={StaticResource BoolToVisibility}}" />
+                </Grid>
+            </Grid>
+        </Grid>
+
+        <!-- Status bar -->
+        <Border Grid.Row="1"
+                Background="Transparent"
+                BorderBrush="{DynamicResource Brush.Border}"
+                BorderThickness="0,1,0,0">
+            <Grid Margin="20,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Text="{Binding Processes.ProcessCountText}"
+                           FontSize="11"
+                           Foreground="{DynamicResource Brush.TextSecondary}"
+                           VerticalAlignment="Center" />
+
+                <Border Grid.Column="1"
+                        Style="{StaticResource Badge.Accent}"
+                        Padding="7,1"
+                        Margin="12,0,0,0"
+                        Visibility="{Binding Processes.IsElevated, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock Text="{Binding [status.elevated], Source={x:Static loc:LocalizationService.Instance}}"
+                               FontSize="9"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource Brush.Accent}" />
+                </Border>
+
+                <TextBlock Grid.Column="2"
+                           Text="{Binding Processes.LastUpdatedText}"
+                           Style="{StaticResource Text.Caption}"
+                           Margin="12,0,0,0"
+                           VerticalAlignment="Center" />
+
+                <TextBlock Grid.Column="4"
+                           Text="{Binding Processes.StatusMessage}"
+                           MaxWidth="520"
+                           VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis"
+                           TextAlignment="Right">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock" BasedOn="{StaticResource Text.Caption}">
+                            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Processes.HasError}" Value="True">
+                                    <Setter Property="Foreground" Value="{DynamicResource Brush.Danger}" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

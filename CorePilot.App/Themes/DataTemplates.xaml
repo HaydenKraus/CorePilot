@@ -1,0 +1,60 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <DataTemplate x:Key="LocalizedOptionTemplate">
+        <TextBlock Text="{Binding Label}" FontSize="12" />
+    </DataTemplate>
+
+    <DataTemplate x:Key="CoreChipTemplate">
+        <ToggleButton Style="{StaticResource CoreChip}"
+                      ToolTip="{Binding Tooltip}"
+                      IsChecked="{Binding IsSelected, Mode=TwoWay}">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="{Binding Label}" />
+                <TextBlock Text="v"
+                           FontSize="7"
+                           FontWeight="SemiBold"
+                           Margin="1,0,0,0"
+                           VerticalAlignment="Top"
+                           Opacity="0.8"
+                           Visibility="{Binding IsVirtual, Converter={StaticResource BoolToVisibility}}" />
+            </StackPanel>
+        </ToggleButton>
+    </DataTemplate>
+
+    <DataTemplate x:Key="CoreGroupTemplate">
+        <Grid Margin="0,1,0,5">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="92" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock Text="{Binding Title}"
+                           FontSize="10"
+                           Foreground="{DynamicResource Brush.TextSecondary}"
+                           VerticalAlignment="Center" />
+                <Border Style="{StaticResource Badge.Accent}"
+                        Padding="4,1"
+                        Margin="6,0,0,0"
+                        Visibility="{Binding ShowEfficiency, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock Text="{Binding EfficiencyLabel}"
+                               FontSize="8"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource Brush.Accent}" />
+                </Border>
+            </StackPanel>
+
+            <ItemsControl Grid.Column="1"
+                          ItemsSource="{Binding Cores}"
+                          ItemTemplate="{StaticResource CoreChipTemplate}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+            </ItemsControl>
+        </Grid>
+    </DataTemplate>
+
+</ResourceDictionary>
