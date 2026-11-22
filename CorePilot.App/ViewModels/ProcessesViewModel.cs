@@ -373,6 +373,11 @@ public sealed class ProcessesViewModel : ObservableObject, IDisposable
         _view.Refresh();
     }
 
+    private static bool IsReusedPid(ProcessItemViewModel item, ProcessSnapshot snapshot) =>
+        item.StartTime is { } known
+        && snapshot.StartTime is { } current
+        && Math.Abs((current - known).TotalSeconds) > 1;
+
     private void ApplySnapshots(IReadOnlyList<ProcessSnapshot> snapshots)
     {
         var existing = new Dictionary<int, ProcessItemViewModel>(_items.Count);
@@ -384,12 +389,24 @@ public sealed class ProcessesViewModel : ObservableObject, IDisposable
         var structureChanged = false;
         foreach (var snapshot in snapshots)
         {
-            if (existing.TryGetValue(snapshot.Pid, out var item))
+            if (existing.TryGetValue(snapshot.Pid, out var item) && !IsReusedPid(item, snapshot))
             {
                 structureChanged |= item.Update(snapshot);
             }
             else
             {
+                if (item is not null)
+                {
+                    // Windows handed the PID to a new process: drop the old row and its state
+                    // (command line, touched priorities) instead of morphing it.
+                    if (ReferenceEquals(SelectedProcess, item))
+                    {
+                        SelectedProcess = null;
+                    }
+
+                    _items.Remove(item);
+                }
+
                 item = new ProcessItemViewModel(snapshot, this);
                 existing[snapshot.Pid] = item;
                 _items.Add(item);
@@ -780,7 +797,18 @@ public sealed class ProcessesViewModel : ObservableObject, IDisposable
         }
     }
 
-    private void OnRulesChanged(object? sender, EventArgs e) => RefreshRuleFlags();
+    private void OnRulesChanged(object? sender, EventArgs e)
+    {
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher is null || dispatcher.CheckAccess())
+        {
+            RefreshRuleFlags();
+        }
+        else
+        {
+            dispatcher.BeginInvoke(RefreshRuleFlags);
+        }
+    }
 
     private void OnLocalizationChanged(object? sender, PropertyChangedEventArgs e)
     {

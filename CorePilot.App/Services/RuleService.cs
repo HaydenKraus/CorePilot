@@ -54,6 +54,10 @@ public sealed class RuleService : IRuleService
     {
         ArgumentNullException.ThrowIfNull(rule);
 
+        // Store a private copy: the caller's object (often a view model's) must not
+        // alias the list that the enforcer reads from other threads.
+        rule = rule.Clone();
+
         lock (_gate)
         {
             rule.ExecutablePath = (rule.ExecutablePath ?? string.Empty).Trim();

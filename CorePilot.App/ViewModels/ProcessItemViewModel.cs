@@ -1134,6 +1134,11 @@ public sealed class ProcessItemViewModel : ObservableObject
                 return;
             }
 
+            // Capture before terminating: a refresh during the delay may rebind this row.
+            var executablePath = ExecutablePath;
+            var arguments = ExtractArguments();
+            var workingDirectory = Path.GetDirectoryName(executablePath);
+
             var terminated = service.Terminate(Pid);
             if (!terminated.Success)
             {
@@ -1143,9 +1148,7 @@ public sealed class ProcessItemViewModel : ObservableObject
 
             await Task.Delay(700).ConfigureAwait(true);
 
-            var arguments = ExtractArguments();
-            var workingDirectory = Path.GetDirectoryName(ExecutablePath);
-            var started = service.StartNew(ExecutablePath, arguments, workingDirectory);
+            var started = service.StartNew(executablePath, arguments, workingDirectory);
             if (started.Success)
             {
                 _owner.ReportInfo(Loc["status.restarted"]);

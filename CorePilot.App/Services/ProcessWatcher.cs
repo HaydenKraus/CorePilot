@@ -37,6 +37,7 @@ public sealed class ProcessWatcher : IProcessWatcher, IDisposable
                 return;
             }
 
+            _cts?.Dispose();
             _cts = new CancellationTokenSource();
             _known = new Dictionary<int, ProcessSnapshot>();
             var generation = ++_generation;

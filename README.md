@@ -42,7 +42,7 @@
 
 ## Установка
 
-1. Скачайте `CorePilot-Setup-1.0.0.exe` со страницы [Releases](../../releases).
+1. Скачайте `CorePilot-Setup-1.1.0.exe` со страницы [Releases](../../releases).
 2. Запустите установщик. Права администратора не нужны: приложение ставится в профиль пользователя.
 3. Язык установщика выбирается автоматически (русский/английский).
 
@@ -73,7 +73,7 @@ powershell -ExecutionPolicy Bypass -File installer/build.ps1
 ```
 
 Скрипт публикует self-contained сборку в `artifacts/publish` и собирает
-`artifacts/installer/CorePilot-Setup-1.0.0.exe`.
+`artifacts/installer/CorePilot-Setup-1.1.0.exe`.
 
 ## Структура решения
 

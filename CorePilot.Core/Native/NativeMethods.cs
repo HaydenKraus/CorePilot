@@ -105,6 +105,29 @@ internal static class NativeMethods
     [DllImport("kernel32.dll", SetLastError = true)]
     internal static extern bool CloseHandle(IntPtr handle);
 
+    [DllImport("kernel32.dll")]
+    private static extern uint GetActiveProcessorCount(ushort groupNumber);
+
+    /// <summary>
+    /// All active logical processors in the system. Unlike Environment.ProcessorCount it
+    /// ignores CorePilot's own affinity, which would otherwise skew CPU % and topology.
+    /// </summary>
+    internal static int SystemProcessorCount
+    {
+        get
+        {
+            try
+            {
+                var count = (int)GetActiveProcessorCount(0xFFFF); // ALL_PROCESSOR_GROUPS
+                return count > 0 ? count : Math.Max(1, Environment.ProcessorCount);
+            }
+            catch
+            {
+                return Math.Max(1, Environment.ProcessorCount);
+            }
+        }
+    }
+
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool GetProcessAffinityMask(SafeNativeHandle process, out UIntPtr processMask, out UIntPtr systemMask);
 
@@ -202,7 +225,7 @@ internal static class NativeMethods
     /// <summary>Opens the current process with read-only query rights.</summary>
     internal static SafeNativeHandle OpenCurrentProcess()
     {
-        var handle = OpenProcessNative(PROCESS_QUERY_LIMITED_INFORMATION, true, Environment.ProcessId);
+        var handle = OpenProcessNative(PROCESS_QUERY_LIMITED_INFORMATION, false, Environment.ProcessId);
         return new SafeNativeHandle(handle);
     }
 

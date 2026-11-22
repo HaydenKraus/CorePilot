@@ -27,14 +27,14 @@ public sealed class CpuTopologyService : ICpuTopologyService
             buffer = NativeMethods.GetLogicalProcessorInformation(NativeMethods.RelationProcessorCore);
         }
 
-        var clocks = NativeMethods.QueryMaxClockMhz(Math.Max(1, Environment.ProcessorCount));
+        var clocks = NativeMethods.QueryMaxClockMhz(NativeMethods.SystemProcessorCount);
         var topology = ParseTopology(buffer, clocks);
         return topology.Count > 0 ? topology : BuildFallback(clocks);
     }
 
     private static CpuTopology BuildFallback(int[] clocks)
     {
-        var count = Math.Max(1, Environment.ProcessorCount);
+        var count = NativeMethods.SystemProcessorCount;
         var processors = new List<LogicalProcessor>(count);
 
         for (var index = 0; index < count; index++)

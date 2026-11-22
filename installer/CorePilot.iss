@@ -1,5 +1,5 @@
 #define MyAppName "CorePilot"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "1.1.0"
 #define MyAppPublisher "CorePilot"
 #define MyAppExeName "CorePilot.exe"
 #define MyAppUrl "https://github.com/HaydenKraus/CorePilot"

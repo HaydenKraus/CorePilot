@@ -11,7 +11,11 @@ public interface IProcessService
     bool IsElevated { get; }
 
     /// <summary>Returns a fresh snapshot of every accessible process.</summary>
-    IReadOnlyList<ProcessSnapshot> GetProcesses();
+    /// <param name="sampleCpu">
+    /// False for background callers (rule sweeps): CPU % stays 0 and the UI's sampling
+    /// window is not reset, so the process table keeps accurate CPU numbers.
+    /// </param>
+    IReadOnlyList<ProcessSnapshot> GetProcesses(bool sampleCpu = true);
 
     /// <summary>Returns just the live process IDs; much cheaper than <see cref="GetProcesses"/>.</summary>
     IReadOnlyList<int> GetProcessIds();

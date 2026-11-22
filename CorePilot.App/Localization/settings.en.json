@@ -20,7 +20,7 @@
   "settings.option.startWithWindows": "Start with Windows",
   "settings.option.startWithWindows.hint": "Adds CorePilot to the current user's autostart.",
   "settings.option.startMinimized": "Start minimized",
-  "settings.option.startMinimized.hint": "Launch into the tray on sign-in.",
+  "settings.option.startMinimized.hint": "Launch straight into the tray.",
   "settings.option.minimizeToTray": "Minimize to tray",
   "settings.option.minimizeToTray.hint": "Keep running in the background when minimized.",
   "settings.option.closeToTray": "Close to tray",

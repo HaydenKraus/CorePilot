@@ -20,7 +20,7 @@
   "settings.option.startWithWindows": "Запускать с Windows",
   "settings.option.startWithWindows.hint": "Добавляет CorePilot в автозапуск текущего пользователя.",
   "settings.option.startMinimized": "Запускать свёрнутым",
-  "settings.option.startMinimized.hint": "При входе в систему работать в трее.",
+  "settings.option.startMinimized.hint": "При запуске сразу работать в трее.",
   "settings.option.minimizeToTray": "Сворачивать в трей",
   "settings.option.minimizeToTray.hint": "Продолжать работу в фоне при сворачивании.",
   "settings.option.closeToTray": "Закрывать в трей",

@@ -250,7 +250,8 @@ public sealed class RuleEditorViewModel : PageViewModel, IDisposable
 
         foreach (var core in _cores)
         {
-            core.IsSelected = (rule.AffinityMask & (1UL << core.Index)) != 0;
+            // The mask is 64-bit; a shift by >= 64 would wrap around to low bits.
+            core.IsSelected = core.Index is >= 0 and < 64 && (rule.AffinityMask & (1UL << core.Index)) != 0;
         }
 
         OnAllChanged();

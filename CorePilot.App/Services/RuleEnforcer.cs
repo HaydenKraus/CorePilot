@@ -36,11 +36,14 @@ public sealed class RuleEnforcer : IDisposable
     private readonly IRuleService _rules;
     private readonly IProcessService _processes;
     private readonly ISettingsService _settings;
+    private static readonly TimeSpan FailureBackoff = TimeSpan.FromMinutes(1);
+
     private readonly ConcurrentDictionary<int, ulong> _appliedMasks = new();
+    private readonly ConcurrentDictionary<int, DateTime> _failedUntil = new();
     private readonly System.Threading.Timer _timer;
     private int _started;
     private int _sweeping;
-    private bool _disposed;
+    private volatile bool _disposed;
 
     public RuleEnforcer(IProcessWatcher watcher, IRuleService rules, IProcessService processes, ISettingsService settings)
     {
@@ -89,20 +92,19 @@ public sealed class RuleEnforcer : IDisposable
     {
         try
         {
-            var processes = _processes.GetProcesses();
-            foreach (var rule in _rules.Rules)
+            var rules = _rules.Rules.Where(r => r.Enabled).ToList();
+            if (rules.Count == 0)
             {
-                if (!rule.Enabled)
-                {
-                    continue;
-                }
+                return;
+            }
 
-                foreach (var process in processes)
+            foreach (var process in _processes.GetProcesses(sampleCpu: false))
+            {
+                // Same choice as for new processes: the first matching rule wins.
+                var rule = FirstMatch(rules, process);
+                if (rule is not null && rule.ApplyOnStart)
                 {
-                    if (rule.Matches(process.ExecutablePath, process.Name))
-                    {
-                        Apply(process, rule, reapplied: false);
-                    }
+                    Apply(process, rule, reapplied: false);
                 }
             }
         }
@@ -132,7 +134,7 @@ public sealed class RuleEnforcer : IDisposable
     {
         try
         {
-            if (e.Process is null)
+            if (e.Process is null || !IsStarted || _disposed)
             {
                 return;
             }
@@ -157,6 +159,7 @@ public sealed class RuleEnforcer : IDisposable
         if (e.Process is not null)
         {
             _appliedMasks.TryRemove(e.Process.Pid, out _);
+            _failedUntil.TryRemove(e.Process.Pid, out _);
         }
     }
 
@@ -174,35 +177,42 @@ public sealed class RuleEnforcer : IDisposable
 
         try
         {
+            var rules = _rules.Rules.Where(r => r.Enabled).ToList();
+            if (!rules.Any(r => r.KeepEnforced))
+            {
+                // Nothing to enforce: skip the full process scan entirely.
+                _appliedMasks.Clear();
+                return;
+            }
+
             IReadOnlyList<ProcessSnapshot> processes;
             try
             {
-                processes = _processes.GetProcesses();
+                processes = _processes.GetProcesses(sampleCpu: false);
             }
             catch
             {
                 return;
             }
 
-            foreach (var rule in _rules.Rules)
+            var systemMask = _processes.SystemAffinityMask;
+            var now = DateTime.UtcNow;
+            foreach (var process in processes)
             {
-                if (!rule.Enabled || !rule.KeepEnforced)
+                // One rule per process, otherwise two matching rules fight every sweep.
+                var rule = FirstMatch(rules, process);
+                if (rule is null || !rule.KeepEnforced)
                 {
                     continue;
                 }
 
-                foreach (var process in processes)
+                if (_failedUntil.TryGetValue(process.Pid, out var retryAt) && retryAt > now)
                 {
-                    if (!rule.Matches(process.ExecutablePath, process.Name))
-                    {
-                        continue;
-                    }
+                    continue;
+                }
 
-                    if (!NeedsReapply(process, rule))
-                    {
-                        continue;
-                    }
-
+                if (NeedsReapply(process, rule, systemMask))
+                {
                     Apply(process, rule, reapplied: true);
                 }
             }
@@ -219,27 +229,65 @@ public sealed class RuleEnforcer : IDisposable
         }
     }
 
-    private static bool NeedsReapply(ProcessSnapshot process, AffinityRule rule)
+    private static AffinityRule? FirstMatch(List<AffinityRule> rules, ProcessSnapshot process)
     {
-        if (rule.AffinityMask != 0 && process.AffinityMask != rule.AffinityMask)
+        foreach (var rule in rules)
+        {
+            if (rule.Matches(process.ExecutablePath, process.Name))
+            {
+                return rule;
+            }
+        }
+
+        return null;
+    }
+
+    private bool NeedsReapply(ProcessSnapshot process, AffinityRule rule, ulong systemMask)
+    {
+        // Mask 0 means the process state could not be read (no access): nothing to compare.
+        if (process.AffinityMask == 0)
+        {
+            return false;
+        }
+
+        // SetAffinity clips the rule to the machine's processors; compare with what it applies.
+        var expectedMask = rule.AffinityMask & systemMask;
+        if (expectedMask != 0 && process.AffinityMask != expectedMask)
         {
             return true;
         }
 
-        return rule.Priority.HasValue && process.Priority != rule.Priority.Value;
+        if (!rule.Priority.HasValue)
+        {
+            return false;
+        }
+
+        // Without elevation Windows silently downgrades RealTime to High.
+        var expectedPriority = rule.Priority.Value == CpuPriority.RealTime && !_processes.IsElevated
+            ? CpuPriority.High
+            : rule.Priority.Value;
+        return process.Priority != expectedPriority;
     }
 
     private void Apply(ProcessSnapshot process, AffinityRule rule, bool reapplied)
     {
+        if (_disposed)
+        {
+            return;
+        }
+
         var result = _rules.Apply(process, rule);
 
         if (result.Success)
         {
             _appliedMasks[process.Pid] = rule.AffinityMask;
+            _failedUntil.TryRemove(process.Pid, out _);
         }
         else
         {
             _appliedMasks.TryRemove(process.Pid, out _);
+            // Access denied etc. will not fix itself in 5 seconds: back off.
+            _failedUntil[process.Pid] = DateTime.UtcNow + FailureBackoff;
         }
 
         var handler = RuleApplied;
@@ -260,7 +308,7 @@ public sealed class RuleEnforcer : IDisposable
 
     private void CleanupStale(IReadOnlyList<ProcessSnapshot> processes)
     {
-        if (_appliedMasks.IsEmpty)
+        if (_appliedMasks.IsEmpty && _failedUntil.IsEmpty)
         {
             return;
         }
@@ -276,6 +324,14 @@ public sealed class RuleEnforcer : IDisposable
             if (!alive.Contains(pid))
             {
                 _appliedMasks.TryRemove(pid, out _);
+            }
+        }
+
+        foreach (var pid in _failedUntil.Keys)
+        {
+            if (!alive.Contains(pid))
+            {
+                _failedUntil.TryRemove(pid, out _);
             }
         }
     }

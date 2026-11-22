@@ -11,7 +11,7 @@ public sealed class ProcessService : IProcessService
     private readonly object _cpuLock = new();
     private readonly Dictionary<int, CpuSample> _cpuSamples = new();
     private readonly Lazy<bool> _isElevated = new(NativeMethods.IsCurrentProcessElevated, LazyThreadSafetyMode.ExecutionAndPublication);
-    private readonly int _coreCount = Math.Max(1, Environment.ProcessorCount);
+    private readonly int _coreCount = NativeMethods.SystemProcessorCount;
 
     // Static per-PID data (path, owner, command line, token state) is resolved once and
     // reused until the PID disappears: those calls dominate a naive process scan.
@@ -60,7 +60,7 @@ public sealed class ProcessService : IProcessService
 
     public bool IsElevated => _isElevated.Value;
 
-    public IReadOnlyList<ProcessSnapshot> GetProcesses()
+    public IReadOnlyList<ProcessSnapshot> GetProcesses(bool sampleCpu = true)
     {
         var result = new List<ProcessSnapshot>(256);
         var now = DateTime.UtcNow;
@@ -86,7 +86,7 @@ public sealed class ProcessService : IProcessService
         {
             using (process)
             {
-                var snapshot = TryCreateSnapshot(process, now, windowPids, parentPids, ref suspendedBudget);
+                var snapshot = TryCreateSnapshot(process, now, windowPids, parentPids, ref suspendedBudget, sampleCpu);
                 if (snapshot is null)
                 {
                     continue;
@@ -97,7 +97,11 @@ public sealed class ProcessService : IProcessService
             }
         }
 
-        PruneCpuSamples(alive);
+        if (sampleCpu)
+        {
+            PruneCpuSamples(alive);
+        }
+
         PruneCache(alive);
         return result;
     }
@@ -110,7 +114,7 @@ public sealed class ProcessService : IProcessService
         {
             using var process = Process.GetProcessById(pid);
             var budget = 1;
-            return TryCreateSnapshot(process, DateTime.UtcNow, GetWindowPids(DateTime.UtcNow), NativeMethods.GetParentProcessIds(), ref budget);
+            return TryCreateSnapshot(process, DateTime.UtcNow, GetWindowPids(DateTime.UtcNow), NativeMethods.GetParentProcessIds(), ref budget, updateCpuSample: false);
         }
         catch (Exception)
         {
@@ -311,7 +315,7 @@ public sealed class ProcessService : IProcessService
         }
     }
 
-    private ProcessSnapshot? TryCreateSnapshot(Process process, DateTime now, HashSet<int> windowPids, IReadOnlyDictionary<int, int> parentPids, ref int suspendedBudget)
+    private ProcessSnapshot? TryCreateSnapshot(Process process, DateTime now, HashSet<int> windowPids, IReadOnlyDictionary<int, int> parentPids, ref int suspendedBudget, bool updateCpuSample)
     {
         int pid;
         string name;
@@ -355,8 +359,6 @@ public sealed class ProcessService : IProcessService
         {
             if (NativeMethods.TryGetProcessTimes(handle, out var totalProcessorTime, out var startTime))
             {
-                cpuPercent = ComputeCpuPercent(pid, totalProcessorTime, now);
-
                 if (startTime is not null)
                 {
                     // A PID that reappeared with a different creation time was reused by Windows.
@@ -368,10 +370,16 @@ public sealed class ProcessService : IProcessService
                         info.Owner = null;
                         info.IsElevated = false;
                         info.StaticLoaded = false;
+                        lock (_cpuLock)
+                        {
+                            _cpuSamples.Remove(pid);
+                        }
                     }
 
                     info.StartTime = startTime;
                 }
+
+                cpuPercent = updateCpuSample ? ComputeCpuPercent(pid, totalProcessorTime, now) : 0d;
             }
 
             NativeMethods.TryGetMemoryUsage(handle, out workingSet, out privateBytes);
@@ -397,26 +405,9 @@ public sealed class ProcessService : IProcessService
         }
         else
         {
-            try
-            {
-                priority = MapPriority(process.PriorityClass);
-            }
-            catch (Exception)
-            {
-            }
-
-            if (!info.StaticLoaded)
-            {
-                try
-                {
-                    info.ExecutablePath = process.MainModule?.FileName;
-                }
-                catch (Exception)
-                {
-                }
-
-                info.StaticLoaded = info.ExecutablePath is not null;
-            }
+            // Even QUERY_LIMITED was denied (System, Registry, protected processes):
+            // Process.PriorityClass / MainModule would only throw, every scan.
+            info.StaticLoaded = true;
         }
 
         if (isNew || (now - info.ThreadCountCheckedAt) >= ThreadCountLifetime)
